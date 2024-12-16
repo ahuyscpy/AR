@@ -11,7 +11,7 @@ public class ApiManager : MonoBehaviour
     public const string apiUrl = "http://54.206.201.163:8080/v1/image";
     public const string Checkupdate_Endpoint = "/check-update";
     public const string ConfirmGift_Endpoint = "update";
-    private string UserToken = "eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJUaGFuaE5IMzMiLCJpYXQiOjE3MzQyNzQ5ODksImV4cCI6MTczNDM2MTM4OX0.5q-LKegag9XzjOBPRd1YnIGoSdnEcxwZyyHkHlW4uKBWQSvqlYCj2LZT8x0LKtZko6F1vRVwLEjsW4_6FLIgUw";
+    private string UserToken = "";
     public bool IsPostCompleted { get; private set; }
     public bool IsGetCompleted { get; private set; }
     private ImageUpdateStatus data = null;
