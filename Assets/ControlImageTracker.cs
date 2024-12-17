@@ -12,7 +12,7 @@ using Zappar;
 public class ControlImageTracker : MonoBehaviour
 {
     private List<ImageUpdate> Data = null;
-    private ImageUpdateStatus DataResponse = null;
+    private ImageConfirmStatus DataResponse = null;
     // Start is called before the first frame update
     public GameObject g_timeout;
     public TextMeshProUGUI _TimeOutText;
@@ -20,7 +20,7 @@ public class ControlImageTracker : MonoBehaviour
     public Image Background;
     public ApiManager ApiManager;
     // time out
-    public float timeLimit = 180f; // Thời gian đếm ngược (3 phút = 180 giây)
+    public float timeLimit = 5f; // Thời gian đếm ngược (3 phút = 180 giây)
     private float timer; // Biến lưu thời gian
 
     // Backgground Image popup
@@ -37,6 +37,14 @@ public class ControlImageTracker : MonoBehaviour
     private ImageUpdate _ImageTrackerInfo;
     public Animation Loading;
     public Button BackButton;
+    public Button ConfirmButton;
+
+    string _ChecupdateApiUrl = "";
+    string _ConfirmGiftApiUrl = "";
+
+
+    // state received api data 1 time
+    bool _IsReceivedData = false;
     private void Awake()
     {
         // fake data
@@ -45,12 +53,32 @@ public class ControlImageTracker : MonoBehaviour
     private void OnEnable()
     {
         //Loading.Play();
+
+        ApiManager.gameObject.SetActive(true);
+        Debug.Log("OnEnable image tracker");
+        _ChecupdateApiUrl = ApiManager.apiUrl + ApiManager.Checkupdate_Endpoint;
+
+        string token = PlayerPrefs.GetString("token", "default_value");
+        if (token != "default_value")
+        {
+            // Sử dụng token
+            Debug.Log("Token: " + token);
+        }
+        else
+        {
+            Debug.Log("Không tìm thấy token.");
+        }
+        BackButton.gameObject.SetActive(true);
+
+
     }
     void Start()
     {
         _TimeOutText = g_timeout.GetComponent<TextMeshProUGUI>();
         timer = timeLimit; // Khởi tạo thời gian
         BackButton.onClick.AddListener(() => OnClickBackButton());
+        ConfirmButton.onClick.AddListener(() => OnClickConfirmButton());
+
     }
 
     // Update is called once per frame
@@ -61,35 +89,44 @@ public class ControlImageTracker : MonoBehaviour
             if (ZapparCamera.Instance.AnchorOrigin.enabled)
             {
                 ZapparCamera.Instance.AnchorOrigin.enabled = false;
-                if (DataResponse != null && DataResponse.status == 1)
-                {
-                }
-                this.Background.sprite = this.GiftCompleteBackground;
+                //if (DataResponse != null && DataResponse.status == 1)
+                //{
+                //}
+                //this.Background.sprite = this.GiftCompleteBackground;
             }
             //if (Loading.isPlaying)
             //{
             //    return;
             //}
-            if (timer > 0)
+            //if (!_Effect.isPlaying)
+            //    _Effect.Play();
+            //if (ApiManager.GetDataImage() != null)
+            if (DataResponse != null && !_IsReceivedData)
             {
+                int i = DataResponse.content;
+                if (i == 0)
+                {
+                    OnReceiveApi(i);
+                    return;
+                }
+                OnReceiveApi(i);
+                DataResponse = ApiManager.GetDataImage();
+                string jsonData = JsonUtility.ToJson(DataResponse);
+                _IsReceivedData = true;
+            }
+            if (timer > 0 && _IsReceivedData)
+            {
+                _TimeOutText.gameObject.SetActive(true);
                 timer -= Time.deltaTime; // Giảm thời gian
                 UpdateTimerText();
+                if (timer <= 0)
+                {
+                    OnEndingScanImage();
+                }
             }
             else
             {
                 timer = 0;
-            }
-
-            //if (!_Effect.isPlaying)
-            //    _Effect.Play();
-            if (ApiManager.GetDataImage() != null)
-            {
-                if (DataResponse != null) return;
-                DataResponse = ApiManager.GetDataImage();
-                string jsonData = JsonUtility.ToJson(DataResponse);
-                Debug.Log("Form: !" + jsonData);
-                //Debug.Log("Form: !" + DataResponse.id);
-                Debug.Log(ZapparCamera.Instance.TrackerAtOrigin.name);
             }
         }
         else
@@ -111,9 +148,13 @@ public class ControlImageTracker : MonoBehaviour
         {
             new ImageUpdate()
             {
-
                 id = 1,
                 updateFlag = false
+            },
+             new ImageUpdate()
+            {
+                id = 2,
+                updateFlag = true
             },
             //new ImageUpdate()
             //{
@@ -126,6 +167,10 @@ public class ControlImageTracker : MonoBehaviour
     void OnDisable()
     {
         timer = timeLimit; // Khởi tạo thời gian
+        DataResponse = null;
+        BackButton.gameObject.SetActive(false);
+        BackButton.gameObject.SetActive(false);
+        _IsReceivedData = false;
     }
     public void GetZapperCamera(ZapparImageTrackingTarget camera)
     {
@@ -135,13 +180,7 @@ public class ControlImageTracker : MonoBehaviour
             id = Convert.ToInt32(camera.Target.Split(".")[0]),
             updateFlag = true
         };
-        Debug.Log(_ImageTrackerInfo);
-        // Check if image available
-        ApiManager.gameObject.SetActive(true);
-        string url = ApiManager.apiUrl + ApiManager.Checkupdate_Endpoint;
-        ApiManager.SendData(_ImageTrackerInfo, url);
-        //if (ApiManager.IsPostCompleted)
-        //ApiManager.GetRequest(url, Data[0]);
+        FakeApi(_ImageTrackerInfo.id);
 
     }
     public void ShowPopupConfirm()
@@ -150,8 +189,57 @@ public class ControlImageTracker : MonoBehaviour
     }
     public void OnClickBackButton()
     {
+        OnEndingScanImage();
+        //timer = 0;
+    }
+    public void OnClickConfirmButton()
+    {
+        _ConfirmGiftApiUrl = ApiManager.apiUrl + ApiManager.ConfirmGift_Endpoint;
+        ApiManager.SendConfirmReceivedData(_ImageTrackerInfo, _ConfirmGiftApiUrl);
+    }
+    void FakeApi(int i = 1)
+    {
+        switch (i)
+        {
+            case 1:
+                DataResponse = new ImageConfirmStatus()
+                {
+                    status = 1,
+                    content = _ImageTrackerInfo.updateFlag == true ? 1 : 0
+                };
+                break;
+            case 8:
+                DataResponse = new ImageConfirmStatus()
+                {
+                    status = 1,
+                    content = 0
+                };
+                break;
+            default:
+                Debug.Log("wrongg rs");
+                break;
+        }
+
+    }
+    void OnReceiveApi(int i)
+    {
+        switch (i)
+        {
+            case 0:
+                ConfirmButton.gameObject.SetActive(false);
+                this.Background.sprite = this.GiftFail;
+                _TimeOutText.gameObject.SetActive(false);
+                break;
+            case 1:
+                ConfirmButton.gameObject.SetActive(true);
+                _TimeOutText.gameObject.SetActive(false);
+                this.Background.sprite = this.GiftCompleteBackground;
+                break;
+        }
+    }
+    void OnEndingScanImage()
+    {
         this.gameObject.SetActive(false);
         ZapparCamera.Instance.AnchorOrigin.enabled = true;
-        //timer = 0;
     }
 }

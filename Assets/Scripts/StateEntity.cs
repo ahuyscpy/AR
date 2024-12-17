@@ -25,4 +25,10 @@ namespace Assets.Scripts
         public int status;
         public string content;
     }
+    [System.Serializable]
+    public class ImageConfirmStatus
+    {
+        public int status;
+        public int content;
+    }
 }
